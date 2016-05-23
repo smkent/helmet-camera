@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+
+import argparse
+import os
+import shutil
+
+# Local package functions
+import video_utils
+
+description = 'Organize video files based on filename'
+ap = argparse.ArgumentParser(description=description)
+ap.add_argument('-d', '--directory', dest='videos_dir', default='.',
+                metavar='dir',
+                help='Videos directory (default: current directory)')
+ap.add_argument('-p', '--pretend', dest='pretend', action='store_true',
+                help='Pretend only (dry run)')
+args = ap.parse_args()
+
+videos_dir_stat = os.stat(args.videos_dir)
+
+for fn in video_utils.list_videos(args.videos_dir):
+    new_path = video_utils.organized_path(os.path.basename(fn))
+    if fn == new_path:
+        continue
+    if (os.stat(os.path.join(args.videos_dir, fn)).st_uid !=
+        videos_dir_stat.st_uid):
+        # Videos without matching user ownership might still be importing
+        # via import-videos
+        print(('{} is not owned by the owner of {}, '
+               'skipping').format(fn, args.videos_dir))
+        continue
+    if not args.pretend:
+        fn_dir = os.path.join(args.videos_dir, os.path.dirname(new_path))
+        if not os.path.isdir(fn_dir):
+            print('Creating directory {}'.format(fn_dir))
+            os.makedirs(fn_dir)
+    print('{} -> {}'.format(fn, new_path))
+    if not args.pretend:
+        shutil.move(os.path.join(args.videos_dir, fn),
+                    os.path.join(args.videos_dir, new_path))
