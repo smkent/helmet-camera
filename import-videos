@@ -1,0 +1,137 @@
+#!/usr/bin/env python
+
+import argparse
+import email.mime.text
+import os
+import math
+import shutil
+import subprocess
+import sys
+import tempfile
+import traceback
+
+description = 'Move videos from my helmet camera when plugged in via udev'
+ap = argparse.ArgumentParser(description=description)
+ap.add_argument('-d', '--destination', dest='dest', metavar='dir',
+                required=True, help='Destination directory')
+ap.add_argument('-e', '--email-address', dest='email', metavar='address',
+                help=('Email address to and from which summary information '
+                      'should be sent. If no email address is specified, '
+                      'summary information is printed on standard output.'))
+ap.add_argument('-f', '--foreground', dest='fork', action='store_false',
+                help='Don\'t fork to the background')
+ap.add_argument('-k', '--keep', dest='keep', action='store_true',
+                help='Keep source files on camera after copy')
+ap.add_argument('--mount-subdir', dest='mount_subdir', metavar='dir',
+                default='DCIM/100MEDIA',
+                help='Camera video subdirectory (default: DCIM/100MEDIA)')
+args = ap.parse_args()
+
+if os.geteuid() != 0:
+    raise Exception('This must be run as root via udev')
+if os.environ.get('ACTION') != 'add':
+    raise Exception('This is not a USB add action')
+dev_name = os.environ.get('DEVNAME')
+if not dev_name or not os.path.exists(dev_name):
+    raise Exception('DEVNAME is undefined or invalid')
+
+# Fork and copy files using the child process to prevent this script from
+# blocking the udev rule from completing.
+if args.fork:
+    if os.fork() != 0:
+        sys.exit(0)
+
+class VideoImporter:
+    def __init__(self):
+        self.dest_stat = os.stat(args.dest)
+        self.copied_files = []
+        self.errors = []
+
+    def main(self):
+        try:
+            self.mount_and_copy_files()
+        except (KeyboardInterrupt, Exception):
+            self.errors.append(traceback.format_exc())
+        finally:
+            self.send_email()
+
+    def format_file_size(self, size):
+        units = ['bytes', 'KiB', 'MiB', 'GiB', 'TiB']
+        exp = int(min(math.log(size, 1024), len(units) - 1))
+        return ('{:.2f} {}'.format(float(size) / (1024.0 ** exp), units[exp]))
+
+    def format_email(self):
+        subject = ''
+        message = []
+        if self.copied_files:
+            message.append('Copied {} files:'.format(len(self.copied_files)))
+            for f in self.copied_files:
+                st = os.stat(os.path.join(args.dest, f))
+                f_size = self.format_file_size(st.st_size)
+                message.append('{} ({})'.format(f, f_size))
+        if self.errors:
+            message.append('{} errors:'.format(len(self.errors)))
+            message += self.errors
+        subject = ('Helmet camera: {} files '
+                   'copied').format(len(self.copied_files))
+        if self.errors:
+            subject += ', {} errors'.format(len(self.errors))
+        return subject, os.linesep.join(message)
+
+    def send_email(self):
+        subject, message = self.format_email()
+        if not args.email:
+            if message:
+                print(message)
+            return
+        email_data = email.mime.text.MIMEText(message)
+        email_data['To'] = args.email
+        email_data['From'] = args.email
+        if subject:
+            email_data['Subject'] = subject
+        p = subprocess.Popen(['/usr/sbin/sendmail', '-f', args.email , '-t'],
+                             stdin=subprocess.PIPE)
+        p.communicate(email_data.as_string())
+
+    def mount_and_copy_files(self):
+        mount_dir = None
+        try:
+            mkdtemp_prefix = '{}_mount.'.format(os.path.basename(sys.argv[0]))
+            mount_dir = tempfile.mkdtemp(prefix=mkdtemp_prefix)
+            subprocess.check_call(['mount', dev_name, mount_dir])
+            self.copy_files(os.path.join(mount_dir, args.mount_subdir))
+        finally:
+            if mount_dir and os.path.isdir(mount_dir):
+                if os.path.ismount(mount_dir):
+                    subprocess.check_call(['umount', mount_dir])
+                if os.path.ismount(mount_dir):
+                    raise Exception('Error unmounting {}'.format(mount_dir))
+                os.rmdir(mount_dir)
+
+    def copy_files(self, source_dir):
+        for f in os.listdir(source_dir):
+            dst_path = os.path.join(args.dest, f)
+            try:
+                if os.path.exists(dst_path):
+                    self.errors.append('{} already exists'.format(dst_path))
+                    continue
+                if args.keep:
+                    shutil.copy2(os.path.join(source_dir, f), dst_path)
+                else:
+                    shutil.move(os.path.join(source_dir, f), dst_path)
+                # Set the copied file ownership to match the ddestination
+                # directory ownership
+                os.chown(dst_path, self.dest_stat.st_uid, self.dest_stat.st_gid)
+                # Reset file permissions to remove the execute bit
+                os.chmod(dst_path, 0o0644)
+                if dst_path[-4:].lower() != '.mov':
+                    # Reset timestamp on non-video (metadata) files
+                    os.utime(dst_path, None)
+                self.copied_files.append(f)
+            except (Exception, KeyboardInterrupt):
+                if os.path.isfile(dst_path):
+                    os.unlink(dst_path)
+                raise
+
+v = VideoImporter()
+v.main()
