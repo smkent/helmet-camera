@@ -10,6 +10,9 @@ import sys
 import tempfile
 import traceback
 
+# Local package functions
+import video_utils
+
 description = 'Move videos from my helmet camera when plugged in via udev'
 ap = argparse.ArgumentParser(description=description)
 ap.add_argument('-d', '--destination', dest='dest', metavar='dir',
@@ -22,6 +25,8 @@ ap.add_argument('-f', '--foreground', dest='fork', action='store_false',
                 help='Don\'t fork to the background')
 ap.add_argument('-k', '--keep', dest='keep', action='store_true',
                 help='Keep source files on camera after copy')
+ap.add_argument('-o', '--organize', dest='organize', action='store_true',
+                help='Organize video files during import')
 ap.add_argument('--mount-subdir', dest='mount_subdir', metavar='dir',
                 default='DCIM/100MEDIA',
                 help='Camera video subdirectory (default: DCIM/100MEDIA)')
@@ -66,9 +71,9 @@ class VideoImporter:
         if self.copied_files:
             message.append('Copied {} files:'.format(len(self.copied_files)))
             for f in self.copied_files:
-                st = os.stat(os.path.join(args.dest, f))
+                st = os.stat(f)
                 f_size = self.format_file_size(st.st_size)
-                message.append('{} ({})'.format(f, f_size))
+                message.append('{} ({})'.format(os.path.basename(f), f_size))
         if self.errors:
             message.append('{} errors:'.format(len(self.errors)))
             message += self.errors
@@ -110,16 +115,25 @@ class VideoImporter:
 
     def copy_files(self, source_dir):
         for f in os.listdir(source_dir):
-            dst_path = os.path.join(args.dest, f)
+            if args.organize:
+                dst_path = os.path.join(args.dest,
+                                        video_utils.organized_path(f))
+            else:
+                dst_path = os.path.join(args.dest, f)
             try:
                 if os.path.exists(dst_path):
                     self.errors.append('{} already exists'.format(dst_path))
                     continue
+                dst_dir = os.path.dirname(dst_path)
+                if args.organize and not os.path.isdir(dst_dir):
+                    os.mkdir(dst_dir)
+                    os.chown(dst_dir, self.dest_stat.st_uid,
+                             self.dest_stat.st_gid)
                 if args.keep:
                     shutil.copy2(os.path.join(source_dir, f), dst_path)
                 else:
                     shutil.move(os.path.join(source_dir, f), dst_path)
-                # Set the copied file ownership to match the ddestination
+                # Set the copied file ownership to match the destination
                 # directory ownership
                 os.chown(dst_path, self.dest_stat.st_uid, self.dest_stat.st_gid)
                 # Reset file permissions to remove the execute bit
@@ -127,7 +141,7 @@ class VideoImporter:
                 if dst_path[-4:].lower() != '.mov':
                     # Reset timestamp on non-video (metadata) files
                     os.utime(dst_path, None)
-                self.copied_files.append(f)
+                self.copied_files.append(dst_path)
             except (Exception, KeyboardInterrupt):
                 if os.path.isfile(dst_path):
                     os.unlink(dst_path)
