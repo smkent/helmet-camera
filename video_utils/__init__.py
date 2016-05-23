@@ -50,3 +50,35 @@ def organized_path(fn):
         new_fn = fn
     new_fn = os.path.join(new_fn_dir, new_fn)
     return new_fn
+
+def cleanup_videos(videos_dir, free_space, pretend=False):
+    cleaned_files = []
+    free_space = int(free_space) * (1024 ** 3) # Convert GiB to bytes
+    # Determine path free space
+    st = os.statvfs(videos_dir)
+    disk_free_space = st.f_bavail * st.f_frsize
+    for fn in list_videos(videos_dir):
+        if not fn.lower().endswith('.mov'):
+            continue
+        if disk_free_space >= free_space:
+            break
+        full_fn = os.path.join(videos_dir, fn)
+        fn_prefix = fn.rsplit('.', 1)[0]
+        for suffix in ['MOV', 'THM', 'MOV.times']:
+            video_fn = '{}.{}'.format(fn_prefix, suffix)
+            video_full_fn = os.path.join(videos_dir, video_fn)
+            if os.path.isfile(video_full_fn):
+                freed_space = os.stat(video_full_fn).st_size
+                disk_free_space += freed_space
+                print('Removing {}'.format(video_fn))
+                if not pretend:
+                    os.unlink(video_full_fn)
+                cleaned_files.append((video_fn, freed_space))
+        fn_dir = os.path.dirname(fn)
+        full_fn_dir = os.path.join(videos_dir, fn_dir)
+        if not os.listdir(full_fn_dir):
+            print('Removing empty directory {}'.format(fn_dir))
+            if not pretend:
+                os.rmdir(full_fn_dir)
+            cleaned_files.append((fn_dir, -1))
+    return cleaned_files

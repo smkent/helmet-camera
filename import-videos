@@ -27,6 +27,11 @@ ap.add_argument('-k', '--keep', dest='keep', action='store_true',
                 help='Keep source files on camera after copy')
 ap.add_argument('-o', '--organize', dest='organize', action='store_true',
                 help='Organize video files during import')
+ap.add_argument('-c', '--clean-up-free-space', dest='cleanup_free_space',
+                metavar='space (GiB)', type=int,
+                help=('Remove video files until there is at least this much '
+                      'space available on the disk where the videos directory '
+                      'resides (default: no clean up)'))
 ap.add_argument('--mount-subdir', dest='mount_subdir', metavar='dir',
                 default='DCIM/100MEDIA',
                 help='Camera video subdirectory (default: DCIM/100MEDIA)')
@@ -50,11 +55,15 @@ class VideoImporter:
     def __init__(self):
         self.dest_stat = os.stat(args.dest)
         self.copied_files = []
+        self.cleaned_files = []
         self.errors = []
 
     def main(self):
         try:
             self.mount_and_copy_files()
+            if args.cleanup_free_space:
+                self.cleaned_files = video_utils.cleanup_videos(args.dest,
+                                         args.cleanup_free_space, pretend=False)
         except (KeyboardInterrupt, Exception):
             self.errors.append(traceback.format_exc())
         finally:
@@ -62,11 +71,14 @@ class VideoImporter:
 
     def format_file_size(self, size):
         units = ['bytes', 'KiB', 'MiB', 'GiB', 'TiB']
+        if size < 1024:
+            return ('{} {}'.format(int(size), units[0]))
         exp = int(min(math.log(size, 1024), len(units) - 1))
         return ('{:.2f} {}'.format(float(size) / (1024.0 ** exp), units[exp]))
 
     def format_email(self):
-        subject = ''
+        subject = ('Helmet camera: {} files '
+                   'copied').format(len(self.copied_files))
         message = []
         if self.copied_files:
             message.append('Copied {} files:'.format(len(self.copied_files)))
@@ -74,12 +86,19 @@ class VideoImporter:
                 st = os.stat(f)
                 f_size = self.format_file_size(st.st_size)
                 message.append('{} ({})'.format(os.path.basename(f), f_size))
+        if self.cleaned_files:
+            message.append('Cleaned {} files:'.format(len(self.cleaned_files)))
+            for f, cleaned_size in self.cleaned_files:
+                if cleaned_size >= 0:
+                    f_size = self.format_file_size(cleaned_size)
+                    message.append('{} ({})'.format(os.path.basename(f),
+                                                    f_size))
+                else:
+                    message.append('{} (directory)'.format(os.path.basename(f)))
+            subject += ', {} removed'.format(len(self.cleaned_files))
         if self.errors:
             message.append('{} errors:'.format(len(self.errors)))
             message += self.errors
-        subject = ('Helmet camera: {} files '
-                   'copied').format(len(self.copied_files))
-        if self.errors:
             subject += ', {} errors'.format(len(self.errors))
         return subject, os.linesep.join(message)
 

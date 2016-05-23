@@ -57,3 +57,13 @@ ContourROAM names its video files. Please see the top of
 
 Video file  organization can also happen automatically in `import-videos` with
 the `-o`/`--organize` option.
+
+## cleanup-videos
+
+This utility removes video files to free disk space, in order by video number
+from lowest to highest. `cleanup-videos` removes videos until the amount of
+disk space specified by `-f`/`--free-space` (in GiB) is available.
+
+Video file  organization can also happen automatically in `import-videos` by
+specifying the desired amount of free disk space (in GiB) with the
+`-c`/`--clean-up-free-space` option.
