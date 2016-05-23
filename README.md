@@ -53,7 +53,7 @@ video files into subdirectories based on the recording count.
 
 `organize-videos` uses a hardcoded organization method based on how the
 ContourROAM names its video files. Please see the top of
-[video\_files/\_\_init\_\_.py](/video_files/__init__.py) for an explanation.
+[video\_utils/\_\_init\_\_.py](/video_utils/__init__.py) for an explanation.
 
 Video file  organization can also happen automatically in `import-videos` with
 the `-o`/`--organize` option.
