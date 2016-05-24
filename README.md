@@ -1,6 +1,7 @@
-# Helmet camera video importer
+# Helmet camera video tools
 
-I use this to manage the videos from my bicycle helmet camera.
+These are file management tools for videos recorded by my bicycle helmet
+camera.
 
 ## import-videos
 
