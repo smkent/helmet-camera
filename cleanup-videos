@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-import glob
-import os
-import shutil
 
 # Local package functions
 import video_utils

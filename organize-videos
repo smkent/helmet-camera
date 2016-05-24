@@ -23,7 +23,7 @@ for fn in video_utils.list_videos(args.videos_dir):
     if fn == new_path:
         continue
     if (os.stat(os.path.join(args.videos_dir, fn)).st_uid !=
-        videos_dir_stat.st_uid):
+            videos_dir_stat.st_uid):
         # Videos without matching user ownership might still be importing
         # via import-videos
         print(('{} is not owned by the owner of {}, '

@@ -1,6 +1,5 @@
 import os
 import re
-import sys
 
 # Videos are organized into directories named based on the range of video file
 # name numbers they contain. For example, "FILE1250.MOV" would be placed in a
@@ -11,13 +10,14 @@ dirname_regex = '^[0-9]{4}-[0-9]{4}$'
 # in how the ContourROAM names its video files. The first video in any set is
 # called FILEXXXX.MOV, where "XXXX" is the recording count. If the first video
 # is longer than 44 minutes, second and further videos are named FIYYXXXX.MOV,
-# where YY starts at "01" with the first continuation file, "02" for the second,
-# and so on. The organization below renames these continuation files from
-# FIYYXXXX.MOV to FILEXXXX-Y.MOV. For example, "FI011250.MOV" would be renamed
-# to "FILE1250-1.MOV".
-video_fn_regex = r'^FI(LE|[0-9]{2})([0-9]{4})(-[0-9]{1})?.(THM|MOV|MOV\.times)$'
+# where YY starts at "01" with the first continuation file, "02" for the
+# second, and so on. The organization below renames these continuation files
+# from FIYYXXXX.MOV to FILEXXXX-Y.MOV. For example, "FI011250.MOV" would be
+# renamed to "FILE1250-1.MOV".
+video_fn_regex = '^FI(LE|[0-9]{2})([0-9]{4})(-[0-9]{1})?.(THM|MOV|MOV\.times)$'
 
 videos_each_dir = 100
+
 
 def list_videos(path):
     for dirpath, dirnames, filenames in sorted(os.walk(path)):
@@ -32,6 +32,7 @@ def list_videos(path):
             if not m:
                 continue
             yield os.path.join(dirpath, fn)
+
 
 def organized_path(fn):
     """Calculate organized destination filename for input filename"""
@@ -51,9 +52,10 @@ def organized_path(fn):
     new_fn = os.path.join(new_fn_dir, new_fn)
     return new_fn
 
+
 def cleanup_videos(videos_dir, free_space, pretend=False):
     cleaned_files = []
-    free_space = int(free_space) * (1024 ** 3) # Convert GiB to bytes
+    free_space = int(free_space) * (1024 ** 3)  # Convert GiB to bytes
     # Determine path free space
     st = os.statvfs(videos_dir)
     disk_free_space = st.f_bavail * st.f_frsize
@@ -62,7 +64,6 @@ def cleanup_videos(videos_dir, free_space, pretend=False):
             continue
         if disk_free_space >= free_space:
             break
-        full_fn = os.path.join(videos_dir, fn)
         fn_prefix = fn.rsplit('.', 1)[0]
         for suffix in ['MOV', 'THM', 'MOV.times']:
             video_fn = '{}.{}'.format(fn_prefix, suffix)

@@ -51,6 +51,7 @@ if args.fork:
     if os.fork() != 0:
         sys.exit(0)
 
+
 class VideoImporter:
     def __init__(self):
         self.dest_stat = os.stat(args.dest)
@@ -62,8 +63,10 @@ class VideoImporter:
         try:
             self.mount_and_copy_files()
             if args.cleanup_free_space:
-                self.cleaned_files = video_utils.cleanup_videos(args.dest,
-                                         args.cleanup_free_space, pretend=False)
+                self.cleaned_files = \
+                    video_utils.cleanup_videos(args.dest,
+                                               args.cleanup_free_space,
+                                               pretend=False)
         except (KeyboardInterrupt, Exception):
             self.errors.append(traceback.format_exc())
         finally:
@@ -94,7 +97,8 @@ class VideoImporter:
                     message.append('{} ({})'.format(os.path.basename(f),
                                                     f_size))
                 else:
-                    message.append('{} (directory)'.format(os.path.basename(f)))
+                    message_text = '{} (directory)'.format(os.path.basename(f))
+                    message.append(message_text)
             subject += ', {} removed'.format(len(self.cleaned_files))
         if self.errors:
             message.append('{} errors:'.format(len(self.errors)))
@@ -113,7 +117,7 @@ class VideoImporter:
         email_data['From'] = args.email
         if subject:
             email_data['Subject'] = subject
-        p = subprocess.Popen(['/usr/sbin/sendmail', '-f', args.email , '-t'],
+        p = subprocess.Popen(['/usr/sbin/sendmail', '-f', args.email, '-t'],
                              stdin=subprocess.PIPE)
         p.communicate(email_data.as_string())
 
@@ -154,7 +158,8 @@ class VideoImporter:
                     shutil.move(os.path.join(source_dir, f), dst_path)
                 # Set the copied file ownership to match the destination
                 # directory ownership
-                os.chown(dst_path, self.dest_stat.st_uid, self.dest_stat.st_gid)
+                os.chown(dst_path, self.dest_stat.st_uid,
+                         self.dest_stat.st_gid)
                 # Reset file permissions to remove the execute bit
                 os.chmod(dst_path, 0o0644)
                 if dst_path[-4:].lower() != '.mov':
