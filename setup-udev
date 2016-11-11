@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import argparse
+import os
+import subprocess
+import sys
+
+
+UDEV_RULES_FILE = '/etc/udev/rules.d/81-helmet-camera.rules'
+
+
+def main():
+    description = 'Install udev rule for invoking import-videos automatically'
+    ap = argparse.ArgumentParser(description=description)
+    ap.add_argument('-c', '--clean-up-free-space', dest='cleanup_free_space',
+                    metavar='space (GiB)', type=int,
+                    help=('Remove video files until there is at least this '
+                          'much space available on the disk where the videos '
+                          'directory resides (default: no clean up)'))
+    ap.add_argument('-d', '--destination', dest='dest', metavar='dir',
+                    required=True, help='Videos destination directory')
+    ap.add_argument('-e', '--email-address', dest='email', metavar='address',
+                    help=('Email address to and from which summary '
+                          'information should be sent. If no email address is '
+                          'specified, summary information is printed on '
+                          'standard output.'))
+    ap.add_argument('-o', '--organize', dest='organize', action='store_true',
+                    help='Organize video files during import')
+    ap.add_argument('-O', '--overwrite', action='store_true',
+                    help='Overwrite existing rules file if it already exists')
+    ap.add_argument('-p', '--usb-product', metavar='product',
+                    dest='usb_product',
+                    help='Camera\'s USB product ID (example: 5566)')
+    ap.add_argument('-v', '--usb-vendor', metavar='vendor', dest='usb_vendor',
+                    help='Camera\'s USB vendor ID (example: 0d64)')
+    ap.add_argument('-y', '--yes', action='store_true',
+                    help='Skip confirmation before writing udev rules file')
+    args = ap.parse_args()
+
+    try:
+        # Argument validation
+        if not args.usb_product and not args.usb_vendor:
+            raise Exception('Please specify one or both of -p/--usb-product '
+                            'or -v/--usb-vendor. You can determine the '
+                            'correct values to use by running "lsusb" with '
+                            'your camera connected to your computer.')
+        # Assemble udev rule
+        udev_rule = 'KERNEL=="sd?1"'
+        if args.usb_vendor:
+            udev_rule += ', ATTRS{{idVendor}}=="{}"'.format(args.usb_vendor)
+        if args.usb_product:
+            udev_rule += ', ATTRS{{idProduct}}=="{}"'.format(args.usb_product)
+        udev_rule += ', ACTION=="add", MODE="644"'
+        # Determine import_videos command to run
+        udev_cmd = os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])),
+                                'import-videos')
+        if args.email:
+            udev_cmd += ' -e \'{}\''.format(args.email)
+        if args.cleanup_free_space:
+            udev_cmd += ' -c \'{}\''.format(args.cleanup_free_space)
+        if args.organize:
+            udev_cmd += ' -o'
+        udev_cmd += ' -d \'{}\''.format(os.path.realpath(args.dest))
+        udev_rule += ', RUN+="{}"'.format(udev_cmd)
+        print('Final udev rule:')
+        print(udev_rule)
+        print('')
+        if not args.overwrite and os.path.exists(UDEV_RULES_FILE):
+            raise Exception(('udev rules file {} '
+                             'already exists').format(UDEV_RULES_FILE))
+        if not args.yes:
+            r = raw_input(('Write the above udev rule to {}? '
+                           '[y/N] ').format(UDEV_RULES_FILE))
+            if r.strip() != 'y':
+                return
+        with open(UDEV_RULES_FILE, 'w') as f:
+            f.write(udev_rule)
+            f.write(os.linesep)
+        print('Wrote udev rules file {}'.format(UDEV_RULES_FILE))
+        subprocess.check_call(['udevadm', 'control', '--reload'])
+        print('Reloaded udev rules')
+    except Exception as e:
+        print('Error: {}'.format(str(e)))
+
+
+if __name__ == '__main__':
+    # Run as root
+    if os.getuid() != 0:
+        sys.exit(subprocess.call(['sudo'] + sys.argv))
+    main()

@@ -16,7 +16,7 @@ import video_utils
 description = 'Move videos from my helmet camera when plugged in via udev'
 ap = argparse.ArgumentParser(description=description)
 ap.add_argument('-d', '--destination', dest='dest', metavar='dir',
-                required=True, help='Destination directory')
+                required=True, help='Videos destination directory')
 ap.add_argument('-e', '--email-address', dest='email', metavar='address',
                 help=('Email address to and from which summary information '
                       'should be sent. If no email address is specified, '

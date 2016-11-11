@@ -3,6 +3,41 @@
 These are file management tools for videos recorded by my bicycle helmet
 camera.
 
+## Quick setup
+
+### Determine your camera's USB vendor and product ID
+
+Plug your camera into your computer and run `lsusb` to retrieve information
+about connected USB devices. Locate your camera in the device list and note the
+USB vendor and product ID for your device. For example, `lsusb` prints the
+following for my camera (an original ContourROAM):
+
+```
+Bus 003 Device 045: ID 0d64:5566 DXG Technology Corp.
+```
+
+In this example, `0d64` and `5566` are the USB vendor and product ID,
+respectively.
+
+### setup-udev
+
+To automatically copy video files from your camera to your hard drive when your
+camera is plugged in via USB, run `setup-udev` to install a udev rule for your
+device. Specify your camera's USB vendor and product ID, as well as a
+destination directory to copy videos to:
+
+```shell
+./setup-udev -d path/to/videos/directory -v 0d64 -p 5566
+```
+
+The udev rule will be placed in `/etc/udev/rules.d/81-helmet-camera.rules`.
+`setup-udev` will automatically reload the udev rules. Unplug and replug your
+camera to test video import.
+
+`setup-udev` accepts additional arguments that can be passed along to
+`import-videos` via the installed udev rule. Run `setup-udev --help` for more
+information.
+
 ## import-videos
 
 `import-videos` is meant to run automatically via udev. It mounts the camera
@@ -13,7 +48,11 @@ I wrote this script to handle my specific camera (an original ContourROAM), but
 it may be useful for video import from any camera that presents videos to the
 host via USB mass storage.
 
-### udev rule example
+### Manual udev rule installation
+
+An appropriate udev rule can be automatically installed using `setup-udev`. See
+the "Quick setup" section above for more information. These instructions
+describe how to configure udev manually.
 
 To configure `import-videos` to run automatically, create a udev rule such as
 the following (the entire rule must be placed on a single line):
