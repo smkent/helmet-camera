@@ -38,6 +38,12 @@ camera to test video import.
 `import-videos` via the installed udev rule. Run `setup-udev --help` for more
 information.
 
+### Email notification
+
+Provide an email address to `setup-udev` using `-e/--email-address` to receive
+an email notification when video import is complete. This feature requires your
+system to have a working sendmail in /usr/sbin/sendmail.
+
 ## import-videos
 
 `import-videos` is meant to run automatically via udev. It mounts the camera
@@ -64,7 +70,7 @@ argument must be absolute paths.
 
 The email argument is optional, but recommended. If specified, a summary is
 emailed from and to the specified address when video import is complete. This
-feature requires sendmail.
+feature requires a working sendmail in /usr/sbin/sendmail.
 
 If you have a camera other than the original ContourROAM, you will likely want
 to change the `idVendor` and `idProduct` values in the above example rule. You
