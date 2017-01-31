@@ -52,6 +52,8 @@ def main():
         if args.usb_product:
             udev_rule += ', ATTRS{{idProduct}}=="{}"'.format(args.usb_product)
         udev_rule += ', ACTION=="add", MODE="644"'
+        # Locate system python binary
+        python_exe = subprocess.check_output(['which', 'python']).strip()
         # Determine import_videos command to run
         udev_cmd = os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])),
                                 'import-videos')
@@ -62,7 +64,7 @@ def main():
         if args.organize:
             udev_cmd += ' -o'
         udev_cmd += ' -d \'{}\''.format(os.path.realpath(args.dest))
-        udev_rule += ', RUN+="{}"'.format(udev_cmd)
+        udev_rule += ', RUN+="{} {}"'.format(python_exe, udev_cmd)
         print('Final udev rule:')
         print(udev_rule)
         print('')
