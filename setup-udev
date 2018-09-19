@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from __future__ import print_function
 import argparse
@@ -72,8 +72,8 @@ def main():
             raise Exception(('udev rules file {} '
                              'already exists').format(UDEV_RULES_FILE))
         if not args.yes:
-            r = raw_input(('Write the above udev rule to {}? '
-                           '[y/N] ').format(UDEV_RULES_FILE))
+            r = input('Write the above udev rule to {}? [y/N] '
+                      .format(UDEV_RULES_FILE))
             if r.strip() != 'y':
                 return
         with open(UDEV_RULES_FILE, 'w') as f:

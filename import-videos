@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import email.mime.text
@@ -119,7 +119,7 @@ class VideoImporter:
             email_data['Subject'] = subject
         p = subprocess.Popen(['/usr/sbin/sendmail', '-f', args.email, '-t'],
                              stdin=subprocess.PIPE)
-        p.communicate(email_data.as_string())
+        p.communicate(email_data.as_string().encode('utf-8'))
 
     def mount_and_copy_files(self):
         mount_dir = None
