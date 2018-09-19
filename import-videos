@@ -171,6 +171,7 @@ class VideoImporter:
                     os.unlink(dst_path)
                 raise
 
+
 if __name__ == '__main__':
     v = VideoImporter()
     v.main()
